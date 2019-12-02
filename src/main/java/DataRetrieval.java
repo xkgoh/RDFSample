@@ -33,8 +33,8 @@ public class DataRetrieval {
         DataRetrieval application = new DataRetrieval();
         application.getCategoryWithMostCarpark();
         application.getMaxAverageRateForEachRegion("Saturday", "cdit:hasSaturdayCarparkCharges", "18");
-//        application.getMaxAverageRateForEachRegion("Weekday", "cdit:hasWeekdayCarparkCharges", "18");
-//        application.getMaxAverageRateForEachRegion("Sunday", "cdit:hasSundayCarparkCharges", "18");
+        application.getMaxAverageRateForEachRegion("Weekday", "cdit:hasWeekdayCarparkCharges", "18");
+        application.getMaxAverageRateForEachRegion("Sunday", "cdit:hasSundayCarparkCharges", "18");
 
     }
 
@@ -99,7 +99,7 @@ public class DataRetrieval {
 
         while (result.hasNext()) {
             BindingSet solution = result.next();
-            System.out.println("Carpark Name: " + solution.getValue("carparkName1").stringValue() + ". Max Rate: " + solution.getValue("maxRate").stringValue() + ". Location Category: " + solution.getValue("locationCategoryIRI").stringValue());
+            System.out.println("    Carpark Name: " + solution.getValue("carparkName1").stringValue() + ". Max Rate: " + solution.getValue("maxRate").stringValue() + ". Location Category: " + solution.getValue("locationCategoryIRI").stringValue());
         }
     }
 
@@ -126,19 +126,5 @@ public class DataRetrieval {
             System.out.println("No of carpark: " + solution.getValue("count").stringValue());
             System.out.println("Location: " + solution.getValue("name").stringValue());
         }
-
     }
-
-
-
-
-
-
-
-
-
-
-
-
-
 }

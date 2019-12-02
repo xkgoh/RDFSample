@@ -12,6 +12,7 @@ public class DataCleaner {
     private Reader fileReader;
     private String cleanedJSONFileLocation;
     private BufferedWriter jsonWriter;
+    private static boolean shutdown = false;
 
     //Default constructor
     public DataCleaner() throws IOException {
@@ -32,11 +33,15 @@ public class DataCleaner {
 
         DataCleaner application = new DataCleaner();
         application.processCarparkRateCSVFile();
+        application.shutDown();
+        shutdown = true;
 
         Runtime.getRuntime().addShutdownHook(new Thread() {
             public void run() {
-                System.out.println("Executing shutdown hook...");
-                application.shutDown();
+                if (shutdown == false) {
+                    System.out.println("Executing shutdown hook...");
+                    application.shutDown();
+                }
             }
         });
 
@@ -62,60 +67,60 @@ public class DataCleaner {
     }
 
     //Method which stores the logic to check if each rate description string should be processed or not
-    public void processAllRateDescriptions(String carpark, String category, String weekdays_rate_1, String weekdays_rate_2, String saturday_rate, String sunday_publicholiday_rate) throws IOException {
+    public void processAllRateDescriptions(String carpark, String category, String weekdaysRate1, String weekdaysRate2, String saturdayRate, String sundayPublicholidayRate) throws IOException {
 
         //If weekday carpark rate does not contain any monetary value, i.e. its just description, ignore it.
-        if (removeDescriptionWithNoValues(weekdays_rate_1) == true) {
-            System.out.println("    Skipping " + carpark + " with weekday_rate_1_description " + weekdays_rate_1);
+        if (removeDescriptionWithNoValues(weekdaysRate1) == true) {
+            System.out.println("    Skipping " + carpark + " with weekday_rate_1_description " + weekdaysRate1);
             persistJSONObjectToFile(carpark, category, new JSONObject[6]);
             return;
         }
 
-        JSONObject weekdays_rate_1_obj = parseIndividualRateDescription(weekdays_rate_1);
-        JSONObject weekdays_rate_2_obj = parseIndividualRateDescription(weekdays_rate_2);
+        JSONObject weekdaysRate1Obj = parseIndividualRateDescription(weekdaysRate1);
+        JSONObject weekdaysRate2Obj = parseIndividualRateDescription(weekdaysRate2);
 
         //If both objects are the same, discard one
-        if ((weekdays_rate_1_obj != null && weekdays_rate_2_obj != null) && weekdays_rate_1_obj.toString().compareToIgnoreCase(weekdays_rate_2_obj.toString()) == 0) {
-            weekdays_rate_2_obj = null;
+        if ((weekdaysRate1Obj != null && weekdaysRate2Obj != null) && weekdaysRate1Obj.toString().compareToIgnoreCase(weekdaysRate2Obj.toString()) == 0) {
+            weekdaysRate2Obj = null;
         }
 
-        JSONObject saturday_rate_1_obj, saturday_rate_2_obj, sunday_publicholiday_rate_1_obj, sunday_publicholiday_rate_2_obj;
+        JSONObject saturdayRate1Obj, saturdayRate2Obj, sundayPublicholidayRate1Obj, sundayPublicholidayRate2Obj;
 
         //If saturday's rate is same as weekday, copy it
-        if (saturday_rate.toLowerCase().contains("same")) {
-            saturday_rate_1_obj = weekdays_rate_1_obj;
-            saturday_rate_2_obj = weekdays_rate_2_obj;
+        if (saturdayRate.toLowerCase().contains("same")) {
+            saturdayRate1Obj = weekdaysRate1Obj;
+            saturdayRate2Obj = weekdaysRate2Obj;
         }
 
         else {
-            saturday_rate_1_obj = parseIndividualRateDescription(saturday_rate);
-            saturday_rate_2_obj = null;
+            saturdayRate1Obj = parseIndividualRateDescription(saturdayRate);
+            saturdayRate2Obj = null;
         }
 
         //If sunday's rate is same as weekday, copy it
-        if (sunday_publicholiday_rate.toLowerCase().contains("same") && sunday_publicholiday_rate.toLowerCase().contains("wkday")) {
-            sunday_publicholiday_rate_1_obj = weekdays_rate_1_obj;
-            sunday_publicholiday_rate_2_obj = weekdays_rate_2_obj;
+        if (sundayPublicholidayRate.toLowerCase().contains("same") && sundayPublicholidayRate.toLowerCase().contains("wkday")) {
+            sundayPublicholidayRate1Obj = weekdaysRate1Obj;
+            sundayPublicholidayRate2Obj = weekdaysRate2Obj;
         }
 
         //If sunday's rate is same as saturday, copy it
-        else if (sunday_publicholiday_rate.toLowerCase().contains("same") && sunday_publicholiday_rate.toLowerCase().contains("saturday")) {
-            sunday_publicholiday_rate_1_obj = saturday_rate_1_obj;
-            sunday_publicholiday_rate_2_obj = saturday_rate_2_obj;
+        else if (sundayPublicholidayRate.toLowerCase().contains("same") && sundayPublicholidayRate.toLowerCase().contains("saturday")) {
+            sundayPublicholidayRate1Obj = saturdayRate1Obj;
+            sundayPublicholidayRate2Obj = saturdayRate2Obj;
         }
 
         else {
-            sunday_publicholiday_rate_1_obj = parseIndividualRateDescription(sunday_publicholiday_rate);
-            sunday_publicholiday_rate_2_obj = null;
+            sundayPublicholidayRate1Obj = parseIndividualRateDescription(sundayPublicholidayRate);
+            sundayPublicholidayRate2Obj = null;
         }
 
         JSONObject[] ratesJSONObjectArr = new JSONObject[6];
-        ratesJSONObjectArr[0] = weekdays_rate_1_obj;
-        ratesJSONObjectArr[1] = weekdays_rate_2_obj;
-        ratesJSONObjectArr[2] = saturday_rate_1_obj;
-        ratesJSONObjectArr[3] = saturday_rate_2_obj;
-        ratesJSONObjectArr[4] = sunday_publicholiday_rate_1_obj;
-        ratesJSONObjectArr[5] = sunday_publicholiday_rate_2_obj;
+        ratesJSONObjectArr[0] = weekdaysRate1Obj;
+        ratesJSONObjectArr[1] = weekdaysRate2Obj;
+        ratesJSONObjectArr[2] = saturdayRate1Obj;
+        ratesJSONObjectArr[3] = saturdayRate2Obj;
+        ratesJSONObjectArr[4] = sundayPublicholidayRate1Obj;
+        ratesJSONObjectArr[5] = sundayPublicholidayRate2Obj;
 
         persistJSONObjectToFile(carpark, category, ratesJSONObjectArr);
 
@@ -464,7 +469,15 @@ public class DataCleaner {
             fileReader.close();
             jsonWriter.flush();
             jsonWriter.close();
-            System.out.println("Application terminated gracefully.");
+
+            try {
+                while(true) jsonWriter.flush();
+            }
+
+            catch (IOException e) {
+                System.out.println("Application terminated gracefully.");
+            }
+
         }
 
         catch (IOException e) {
