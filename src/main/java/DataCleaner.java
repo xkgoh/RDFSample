@@ -68,6 +68,8 @@ public class DataCleaner {
 
     //Method which stores the logic to check if each rate description string should be processed or not
     public void processAllRateDescriptions(String carpark, String category, String weekdaysRate1, String weekdaysRate2, String saturdayRate, String sundayPublicholidayRate) throws IOException {
+//
+//        System.out.println(carpark + " " + category + " [] " + weekdaysRate1 + " [] " + weekdaysRate2 + " [] " + saturdayRate + " [] " + sundayPublicholidayRate);
 
         //If weekday carpark rate does not contain any monetary value, i.e. its just description, ignore it.
         if (removeDescriptionWithNoValues(weekdaysRate1) == true) {
@@ -130,6 +132,10 @@ public class DataCleaner {
     //Process the string representation of the parking rate
     public JSONObject parseIndividualRateDescription(String inputRateString) {
 
+        if (inputRateString.length() < 2) {
+            return null;
+        }
+
         String[] inputRateStringTokenized = inputRateString.split(":");
 
         if (inputRateStringTokenized.length > 1) {
@@ -138,7 +144,58 @@ public class DataCleaner {
             String time = inputRateStringTokenized[0];
             String charges = inputRateStringTokenized[1];
 
-            if (time.toLowerCase().contains("am") && time.toLowerCase().contains("pm") && time.toLowerCase().contains("daily") == false && time.length() <=15) { //15 character because longest length is 12.00am-12.00pm
+            if (time.toLowerCase().trim().startsWith("daily")) {
+
+                charges = charges.replace("/", " per ").replace("for", " per ").replaceAll("  ", " ");
+
+                if (charges.contains("sub") == false) { //If it is a simple $X per X hr/min rate
+
+                    Float[] pricePerUnitTime = processRateInAmountPerTime(charges);
+
+                    if (pricePerUnitTime != null) {
+                        return constructCarparkChargeJSONObject(-2f, -2f, pricePerUnitTime[0], pricePerUnitTime[1], -2f, -2f, "dailyPricePerUnitTime");
+                    }
+                }
+
+                else { //Compute sub charges
+
+                    Float[] pricePerUnitTimeWithSub = processRatesInAmountPerTimeWithSubCondition(charges);
+
+                    if (pricePerUnitTimeWithSub != null) {
+                        return constructCarparkChargeJSONObject(-2f, -2f, pricePerUnitTimeWithSub[0], pricePerUnitTimeWithSub[1], pricePerUnitTimeWithSub[2], pricePerUnitTimeWithSub[3], "dailyPricePerUnitTime");
+                    }
+                }
+            }
+
+            else if (time.toLowerCase().trim().startsWith("aft") && charges.toLowerCase().trim().contains("per entry")) { //Aft 5pm: $1 per entry
+
+                float timeAfter = Float.parseFloat(time.replace("After", "").replace("Aft", "").replace("am", "").replace("pm", ""));
+
+                if (time.contains("pm")) {
+                    timeAfter += 12f;
+                }
+
+                String[] chargesTokenized = charges.split(" ");
+                float perEntryRate = 0f;
+
+                for (String curStr : chargesTokenized) {
+                    if (curStr.startsWith("$")) {
+                        perEntryRate = Float.parseFloat(curStr.replace("$", ""));
+                    }
+                }
+
+                return constructCarparkChargeJSONObject(timeAfter, -2f, perEntryRate, -1f, -2f, -2f, "pricePerEntry");
+
+            }
+
+//            //Takes care of time which starts and ends at the same AM/PM e.g. 9am to 10am
+//            if ((time.toLowerCase().contains("am") || time.toLowerCase().contains("pm")) && time.toLowerCase().contains("daily") == false && time.length() <=15) { //15 character because longest length is 12.00am-12.00pm
+//
+//            }
+
+
+            else if ((time.toLowerCase().contains("am") || time.toLowerCase().contains("pm")) && time.length() <=15) {
+//                    time.toLowerCase().contains("daily") == false && time.toLowerCase().contains("aft") == false) { //15 character because longest length is 12.00am-12.00pm
 
                 Float[] startEndTime = processTimeInAmPmFormat(time);
 
@@ -173,57 +230,60 @@ public class DataCleaner {
                 }
             }
 
-            else if (time.toLowerCase().trim().startsWith("daily")) {
-
-                charges = charges.replace("/", " per ").replace("for", " per ").replaceAll("  ", " ");
-
-                if (charges.contains("sub") == false) { //If it is a simple $X per X hr/min rate
-
-                    Float[] pricePerUnitTime = processRateInAmountPerTime(charges);
-
-                    if (pricePerUnitTime != null) {
-                        return constructCarparkChargeJSONObject(-2f, -2f, pricePerUnitTime[0], pricePerUnitTime[1], -2f, -2f, "dailyPricePerUnitTime");
-                    }
-                }
-
-                else { //Compute sub charges
-
-                    Float[] pricePerUnitTimeWithSub = processRatesInAmountPerTimeWithSubCondition(charges);
-
-                    if (pricePerUnitTimeWithSub != null) {
-                        return constructCarparkChargeJSONObject(-2f, -2f, pricePerUnitTimeWithSub[0], pricePerUnitTimeWithSub[1], pricePerUnitTimeWithSub[2], pricePerUnitTimeWithSub[3], "dailyPricePerUnitTime");
-                    }
-                }
-            }
-
-            else if (time.toLowerCase().trim().startsWith("aft") && charges.toLowerCase().trim().contains("per entry")) { //Aft 5pm: $1 per entry
-                float timeAfter = Float.parseFloat(time.replace("After", "").replace("Aft", "").replace("am", "").replace("pm", ""));
-
-                if (time.contains("pm")) {
-                    timeAfter += 12f;
-                }
-
-                String[] chargesTokenized = charges.split(" ");
-                float perEntryRate = 0f;
-
-                for (String curStr : chargesTokenized) {
-                    if (curStr.startsWith("$")) {
-                        perEntryRate = Float.parseFloat(curStr.replace("$", ""));
-                    }
-                }
-
-                return constructCarparkChargeJSONObject(timeAfter, -2f, perEntryRate, -1f, -2f, -2f, "pricePerEntry");
-
-            }
 
             else {
-                //System.out.println("ERROR " + inputRateString);
+//                System.out.println("ERROR " + inputRateString + " (ERROR) " + time);
             }
 
         }
 
-        else {
-//            System.out.println("NO colon Delimiter" + inputRateString);
+        else { //For items with no possibly no timing parameters (Cos they dont have the ":" delimiter)
+            if (!inputRateString.contains("am ") && !inputRateString.contains("pm ") && inputRateString.length() > 2) {
+
+                if (inputRateString.contains("per entry")) {
+                    String[] chargesTokenized = inputRateString.split(" ");
+                    float perEntryRate = 0f;
+                    for (String curStr : chargesTokenized) {
+                        if (curStr.startsWith("$")) {
+                            perEntryRate = Float.parseFloat(curStr.replace("$", ""));
+                        }
+                    }
+
+                    return constructCarparkChargeJSONObject(0f, 23.59f, perEntryRate, -1f, -2f, -2f, "pricePerEntry");
+                }
+            }
+
+            else if (inputRateString.contains(" - ")) { //6.30am to 6.30pm - $2 per hour
+                inputRateStringTokenized = inputRateString.split(" - ");
+                if (inputRateStringTokenized[0].contains("am") && inputRateStringTokenized[0].contains("pm")) {
+
+                    Float[] startEndTime = processTimeInAmPmFormat(inputRateStringTokenized[0]);
+                    Float[] pricePerUnitTime = null;
+
+                    if (inputRateStringTokenized[1].contains("sub")) {
+                        pricePerUnitTime = processRatesInAmountPerTimeWithSubCondition(inputRateStringTokenized[1]);
+                    }
+
+                    if ((pricePerUnitTime != null) && (startEndTime != null) ) {
+                        return constructCarparkChargeJSONObject(startEndTime[0], startEndTime[1], pricePerUnitTime[0], pricePerUnitTime[1], pricePerUnitTime[2], pricePerUnitTime[3], "pricePerUnitTime");
+                    }
+                }
+
+                else if (inputRateStringTokenized[0].contains("After")) { //After 4pm - $4 flat
+                    Float timeAfter = Float.parseFloat(inputRateStringTokenized[0].replace("After", "").replace("Aft", "").replace("am", "").replace("pm", ""));
+                    Float perEntryRate = Float.parseFloat(inputRateStringTokenized[1].replace(" flat", "").replace("$", ""));
+                    return constructCarparkChargeJSONObject(timeAfter, -2f, perEntryRate, -1f, -2f, -2f, "pricePerEntry");
+                }
+            }
+
+            else {
+                if (inputRateString.contains("sub")) {
+                    Float[] pricePerUnitTime = processRatesInAmountPerTimeWithSubCondition(inputRateString);
+                    if (pricePerUnitTime!= null) {
+                        return constructCarparkChargeJSONObject(0f, 23.59f, pricePerUnitTime[0], pricePerUnitTime[1], pricePerUnitTime[2], pricePerUnitTime[3], "pricePerUnitTime");
+                    }
+                }
+            }
         }
 
         return null;
@@ -391,12 +451,47 @@ public class DataCleaner {
         inputTimeString = inputTimeString.replaceAll(" to ", "-"); //Some description uses the word " to " in replacement of the " - "
         String[] inputTimeStringTokenized = inputTimeString.split("-");
 
-        if (inputTimeStringTokenized.length > 1 && inputTimeStringTokenized[0].contains("am") && inputTimeStringTokenized[1].contains("pm")) {
-            float am = Float.parseFloat(inputTimeStringTokenized[0].replace("am", "").replace("\u00A0", "").trim());
-            float pm = Float.parseFloat(inputTimeStringTokenized[1].replace("pm", "").replace("\u00A0", "").trim());
-            float pm24Hours = pm + 12.0f;
+        if (inputTimeStringTokenized.length > 1) {
 
-            return new Float[]{am, pm24Hours};
+            float startTime = 0f;
+            float endTime = 0f;
+
+            if (inputTimeStringTokenized[0].contains("am")) {
+                startTime = Float.parseFloat(inputTimeStringTokenized[0].replace("am", "").replace("\u00A0", "").trim());
+            }
+
+            else if (inputTimeStringTokenized[0].contains("pm")) {
+                startTime = Float.parseFloat(inputTimeStringTokenized[0].replace("pm", "").replace("\u00A0", "").trim());
+                startTime = startTime + 12.0f;
+            }
+
+            if (inputTimeStringTokenized[1].contains("am")) {
+                endTime = Float.parseFloat(inputTimeStringTokenized[1].replace("am", "").replace("\u00A0", "").trim());
+            }
+
+            else if (inputTimeStringTokenized[1].contains("pm")) {
+                endTime = Float.parseFloat(inputTimeStringTokenized[1].replace("pm", "").replace("\u00A0", "").trim());
+                endTime = endTime + 12.0f;
+            }
+
+
+
+//            if (inputTimeStringTokenized[0].contains("am") && inputTimeStringTokenized[1].contains("pm")) {
+//                float am = Float.parseFloat(inputTimeStringTokenized[0].replace("am", "").replace("\u00A0", "").trim());
+//                float pm = Float.parseFloat(inputTimeStringTokenized[1].replace("pm", "").replace("\u00A0", "").trim());
+//                float pm24Hours = pm + 12.0f;
+//
+//                return new Float[]{am, pm24Hours};
+//            }
+
+            //If there are two AM
+
+
+            //If there are two PMs
+
+            //Return the value
+//            float pm24Hours = pm + 12.0f;
+            return new Float[]{startTime, endTime};
         }
 
         return null;
@@ -406,6 +501,8 @@ public class DataCleaner {
     public String standardizeRateData (String inputRateString) {
         inputRateString = inputRateString.replace("1½hrs", "90mins").replace("1½ hrs", "90mins");
         inputRateString = inputRateString.replace("1½hr", "90mins");
+        inputRateString = inputRateString.replace("2½ hrs", "150mins").replace("2½hrs", "150mins");
+        inputRateString = inputRateString.replace("½ hour", "30mins");
         inputRateString = inputRateString.replace("½ hr", "30mins");
         inputRateString = inputRateString.replace("½ hr", "30mins");
         inputRateString = inputRateString.replace("1/2 hr" , "30mins");
