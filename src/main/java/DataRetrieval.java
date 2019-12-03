@@ -32,9 +32,9 @@ public class DataRetrieval {
 
         DataRetrieval application = new DataRetrieval();
         application.getCategoryWithMostCarpark();
-        application.getMaxAverageRateForEachRegion("Saturday", "cdit:hasSaturdayCarparkCharges", "18");
-        application.getMaxAverageRateForEachRegion("Weekday", "cdit:hasWeekdayCarparkCharges", "18");
-        application.getMaxAverageRateForEachRegion("Sunday", "cdit:hasSundayCarparkCharges", "18");
+        application.getMaxAverageRateForEachRegion("Saturday", "cdit:hasSaturdayCarparkCharges", "20");
+        application.getMaxAverageRateForEachRegion("Weekday", "cdit:hasWeekdayCarparkCharges", "20");
+        application.getMaxAverageRateForEachRegion("Sunday", "cdit:hasSundayCarparkCharges", "20");
 
     }
 
@@ -43,14 +43,16 @@ public class DataRetrieval {
         String queryString =
                 "PREFIX cdit:<http://cdit#> " +
 
-                "SELECT DISTINCT ?carparkName1 ?maxRate ?locationCategoryIRI " +
+                "SELECT DISTINCT ?carparkName1 ?maxRate ?locationCategoryName " +
                 "WHERE { " +
                     "{ " +
-                        //Subquery to "join" the name of the carpark back to the extracted max value
-                        "SELECT (ABS(?baseRate1/?baseRateTimeUnitInMins1) AS ?avgRate) ?carparkName1 ?maxRate ?locationCategoryIRI " +
+                        //Subquery to "join" the name of the carpark back to the exsssstracted max value
+                        "SELECT (ABS(?baseRate1/?baseRateTimeUnitInMins1) AS ?avgRate) ?carparkName1 ?maxRate ?locationCategoryName " +
                         "WHERE { " +
                             "?carparkIRI1 " + rateRelationshipIRI + "?carparkChargeIRI1. " +
                             "?carparkIRI1 cdit:name ?carparkName1. " +
+                            "?carparkIRI1 cdit:hasLocationCategory ?locationCategoryIRI. " +
+                            "?locationCategoryIRI cdit:name ?locationCategoryName. " +
                             "?carparkChargeIRI1 cdit:baseRate ?baseRate1. " +
                             "?carparkChargeIRI1 cdit:baseRateTimeUnitInMins ?baseRateTimeUnitInMins1. " +
 
@@ -65,7 +67,7 @@ public class DataRetrieval {
                                         "?carparkIRI cdit:hasLocationCategory ?locationCategoryIRI. " +
                                         "?carparkChargeIRI cdit:startTime ?startTime. " +
                                         "FILTER NOT EXISTS {?carparkChargeIRI cdit:endTime ?endTime.} " +
-                                        "FILTER (?startTime <= 18) " +
+                                        "FILTER (?startTime <= "+ curTimeInDecimal + ") " +
                                         "?carparkChargeIRI cdit:baseRate ?baseRate. " +
                                         "?carparkChargeIRI cdit:baseRateTimeUnitInMins ?baseRateTimeUnitInMins. " +
                                     "} " +
@@ -77,7 +79,7 @@ public class DataRetrieval {
                                         "?carparkIRI cdit:hasLocationCategory ?locationCategoryIRI. " +
                                         "?carparkChargeIRI cdit:startTime ?startTime. " +
                                         "?carparkChargeIRI cdit:endTime ?endTime. " +
-                                        "FILTER (?endTime >= 18 && ?startTime <= 18) " +
+                                        "FILTER (?endTime >= " + curTimeInDecimal +" && ?startTime <= " + curTimeInDecimal + ") " +
                                         "?carparkChargeIRI cdit:baseRate ?baseRate. " +
                                         "?carparkChargeIRI cdit:baseRateTimeUnitInMins ?baseRateTimeUnitInMins. " +
                                     "} " +
@@ -89,7 +91,7 @@ public class DataRetrieval {
                     //Filter where the average rate is the max rate obtained from the subquery
                     "FILTER (?avgRate = ?maxRate) " +
                 "} " +
-                "ORDER BY (?locationCategoryIRI) ";
+                "ORDER BY (?locationCategoryName) ";
 
         TupleQuery query = repositoryConnection.prepareTupleQuery(queryString);
 
@@ -99,7 +101,7 @@ public class DataRetrieval {
 
         while (result.hasNext()) {
             BindingSet solution = result.next();
-            System.out.println("    Carpark Name: " + solution.getValue("carparkName1").stringValue() + ". Max Rate: " + solution.getValue("maxRate").stringValue() + ". Location Category: " + solution.getValue("locationCategoryIRI").stringValue());
+            System.out.println("    Carpark Name: " + solution.getValue("carparkName1").stringValue() + "; Max Rate: " + solution.getValue("maxRate").stringValue() + "; Location Category: " + solution.getValue("locationCategoryName").stringValue());
         }
     }
 

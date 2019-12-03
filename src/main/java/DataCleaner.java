@@ -184,18 +184,12 @@ public class DataCleaner {
                     }
                 }
 
-                return constructCarparkChargeJSONObject(timeAfter, -2f, perEntryRate, -1f, -2f, -2f, "pricePerEntry");
+                return constructCarparkChargeJSONObject(timeAfter+0.01f, -2f, perEntryRate, -1f, -2f, -2f, "pricePerEntry");
+                //After 5pm = 5.01pm
 
             }
 
-//            //Takes care of time which starts and ends at the same AM/PM e.g. 9am to 10am
-//            if ((time.toLowerCase().contains("am") || time.toLowerCase().contains("pm")) && time.toLowerCase().contains("daily") == false && time.length() <=15) { //15 character because longest length is 12.00am-12.00pm
-//
-//            }
-
-
-            else if ((time.toLowerCase().contains("am") || time.toLowerCase().contains("pm")) && time.length() <=15) {
-//                    time.toLowerCase().contains("daily") == false && time.toLowerCase().contains("aft") == false) { //15 character because longest length is 12.00am-12.00pm
+            else if ((time.toLowerCase().contains("am") || time.toLowerCase().contains("pm")) && time.length() <=15) { //15 character because longest length is 12.00am-12.00pm
 
                 Float[] startEndTime = processTimeInAmPmFormat(time);
 
