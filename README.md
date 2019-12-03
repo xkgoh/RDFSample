@@ -31,4 +31,10 @@ Next set the configuration file
 3. Data Retrieval: Executes SPARQL queries to retrieve the two queries described in the objectives.
 
 ## Execution Instruction ##
-Each java file can be executed individually, by running the main methods within it. To run the entire ETL pipeline, simply run ApplicationDemo.java which executes the individual java files in the correct ETL sequence.
+Each java file can be executed individually, by running the main methods within it. To run the entire ETL pipeline, simply run ApplicationDemo.java which executes the individual java files in the correct ETL sequence. Alternatively, execute each java class in the same sequence as the code description.
+
+## Computation of Most Expensive Rate ##
+For this project, the most expensive rate (i.e. maximum rate), is defined as the highest cost per minute at a particular time. 
+E.g. At 6pm, Carpark A charges $7/entry and Carpark B charges $1.50/hr. Since we have no details on the duration of parking, rate of Carpark A is assumed to be $7/min and Carpark B to be $0.025/min.
+
+Thank you very much for reading :)    
